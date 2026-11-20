@@ -1,0 +1,119 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2 class="mb-4">Administrative Dashboard</h2>
+
+<div class="row g-4 mb-5">
+    <div class="col-md-6">
+        <div class="card bg-secondary bg-opacity-10 border-secondary p-4 h-100">
+            <h5>Add New IT Asset</h5>
+            <form method="POST">
+                {{ form.hidden_tag() }}
+                <div class="mb-2">
+                    {{ form.name.label(class="form-label") }}
+                    {{ form.name(class="form-control") }}
+                </div>
+                <div class="mb-2">
+                    {{ form.category.label(class="form-label") }}
+                    {{ form.category(class="form-select") }}
+                </div>
+                <div class="mb-3">
+                    {{ form.hourly_rate.label(class="form-label") }}
+                    {{ form.hourly_rate(class="form-control") }}
+                </div>
+                {{ form.submit(class="btn btn-success w-100") }}
+            </form>
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="card bg-secondary bg-opacity-10 border-secondary p-4 h-100 text-center">
+            <h5>Inventory Health Distribution</h5>
+            <div style="max-width: 260px; margin: auto;">
+                <canvas id="inventoryChart"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<h4>Rental Sessions & Live Billing</h4>
+<table class="table table-dark table-striped border-secondary mb-5">
+    <thead>
+        <tr>
+            <th>Asset</th>
+            <th>User</th>
+            <th>Status</th>
+            <th>Accrued / Final Cost</th>
+            <th>Action</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for r in rentals %}
+        <tr>
+            <td>{{ r.asset.name }}</td>
+            <td>{{ r.user_name }} ({{ r.user_email }})</td>
+            <td><span class="badge bg-info text-dark">{{ r.status }}</span></td>
+            <td>${{ "%.2f"|format(r.live_cost) }}</td>
+            <td>
+                {% if r.status == 'Pending' %}
+                    <form method="post" action="{{ url_for('approve_rental', rental_id=r.id) }}" class="d-inline">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="btn btn-sm btn-success">Approve</button>
+                    </form>
+                {% elif r.status == 'Active' %}
+                    <form method="post" action="{{ url_for('complete_rental', rental_id=r.id) }}" class="d-inline">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="btn btn-sm btn-warning">Complete & Bill</button>
+                    </form>
+                {% else %}
+                    <span class="text-muted">Closed</span>
+                {% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<h4>Manage Inventory</h4>
+<table class="table table-dark table-striped border-secondary">
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Category</th>
+            <th>Rate</th>
+            <th>Status</th>
+            <th>Delete</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for a in assets %}
+        <tr>
+            <td>{{ a.name }}</td>
+            <td>{{ a.category }}</td>
+            <td>${{ "%.2f"|format(a.hourly_rate) }}/hr</td>
+            <td>{{ a.status }}</td>
+            <td>
+                <form method="POST" action="{{ url_for('delete_asset', asset_id=a.id) }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="btn btn-sm btn-danger">Delete</button>
+                </form>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    const ctx = document.getElementById('inventoryChart');
+    new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Available', 'Rented', 'Maintenance'],
+            datasets: [{
+                data: {{ chart_data | tojson }},
+                backgroundColor: ['#198754', '#ffc107', '#dc3545']
+            }]
+        }
+    });
+</script>
+{% endblock %}
